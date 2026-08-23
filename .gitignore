@@ -1,0 +1,3 @@
+# Runtime log, in case anyone points -LogPath at the repo
+*.log
+*.log.old
