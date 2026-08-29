@@ -15,7 +15,7 @@ boot, because `Get-VM` needs elevation and the guard has to survive logoff.
 
 What it deliberately does *not* do:
 
-- It does not set `ES_DISPLAY_REQUIRED` -- your monitor still blanks on schedule.
+- It does not set `ES_DISPLAY_REQUIRED`, so your monitor still blanks on schedule.
 - It does not block manual sleep. Choosing Sleep from the Start menu still works.
 - It does not touch your power plan. Uninstalling leaves no settings to revert.
 
@@ -52,6 +52,35 @@ Re-run it after editing `HyperVSleepGuard.ps1` to redeploy.
 
 Options: `-IntervalSeconds`, `-InstallDir`, `-TaskName`.
 
+### If script execution is blocked
+
+Windows clients default to the `Restricted` execution policy, which refuses to run any
+script. On such a machine the install fails before it does anything:
+
+```
+.\Install-SleepGuard.ps1 : File ...\Install-SleepGuard.ps1 cannot be loaded because running
+scripts is disabled on this system.
+```
+
+Only the scripts you start by hand are affected. The scheduled task launches the guard with
+`-ExecutionPolicy Bypass`, so once installed it runs regardless of the machine's policy.
+
+Run the installer in a process that bypasses the policy:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\Install-SleepGuard.ps1
+```
+
+The bypass applies to that one process, so the machine's policy is never modified and there is
+nothing to revert. Use the same form for `Uninstall-SleepGuard.ps1`.
+
+If you would rather relax the policy than bypass it, `RemoteSigned` is enough, but scripts
+extracted from a downloaded ZIP carry a mark of the web and are still rejected as unsigned.
+Clear it with `Get-ChildItem *.ps1 | Unblock-File`, or clone the repo, which does not set the
+mark.
+
+Background: [about_Execution_Policies](https://learn.microsoft.com/powershell/module/microsoft.powershell.core/about/about_execution_policies).
+
 ## Verify
 
 All from an elevated prompt:
@@ -87,7 +116,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File C:\ProgramData\HyperVSleepGu
 ```
 
 **Log shows repeated `Get-VM failed`.** The account running the task cannot read VM state.
-The task must run as `SYSTEM` with RunLevel Highest -- confirm with
+The task must run as `SYSTEM` with RunLevel Highest; confirm with
 `(Get-ScheduledTask 'HyperV Sleep Guard').Principal`.
 
 **PC still asleep despite a running VM.** Confirm the request is actually held with
@@ -96,7 +125,7 @@ The task must run as `SYSTEM` with RunLevel Highest -- confirm with
 
 **PC stays awake with no VM running.** PowerToys Awake left in indefinite mode holds its own
 request and shows up in `powercfg /requests` independently of this guard. Awake has no
-conditional mode and cannot watch VM state, which is why it is not used here -- keep it for
+conditional mode and cannot watch VM state, which is why it is not used here. Keep it for
 manual ad-hoc "stay awake for 2 hours".
 
 ## Uninstall
@@ -107,4 +136,4 @@ manual ad-hoc "stay awake for 2 hours".
 
 ## License
 
-MIT -- see [LICENSE](LICENSE).
+MIT. See [LICENSE](LICENSE).
